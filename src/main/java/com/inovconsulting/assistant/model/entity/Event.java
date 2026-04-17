@@ -1,21 +1,25 @@
-package com.inovconsulting.assistant.models;
+package com.inovconsulting.assistant.model.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * Entité représentant un événement du calendrier du directeur.
+ */
 @Entity
 @Table(name = "events")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Event {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,5 +43,4 @@ public class Event {
     /** Notes ou remarques complémentaires */
     @Column(columnDefinition = "TEXT")
     private String notes;
-
 }

@@ -2,7 +2,7 @@ package com.inovconsulting.assistant.service;
 
 import lombok.AllArgsConstructor;
 import com.inovconsulting.assistant.dto.EventDto;
-import com.inovconsulting.assistant.models.Event;
+import com.inovconsulting.assistant.model.entity.Event;
 import com.inovconsulting.assistant.exception.ResourceNotFoundException;
 import com.inovconsulting.assistant.mapper.EventMapper;
 import com.inovconsulting.assistant.repository.EventRepository;

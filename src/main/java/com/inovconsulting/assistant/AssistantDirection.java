@@ -5,6 +5,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.util.logging.Logger;
 
+
+/**
+ * Point d'entrée de l'application Assistant de Direction — Inov Consulting.
+ *
+ * Lancement : ./mvnw spring-boot:run
+ * Swagger UI : http://localhost:8080/swagger-ui.html
+ */
 @SpringBootApplication
 public class AssistantDirection {
 

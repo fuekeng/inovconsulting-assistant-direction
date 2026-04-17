@@ -1,7 +1,7 @@
 package com.inovconsulting.assistant.mapper;
 
 import com.inovconsulting.assistant.dto.EventDto;
-import com.inovconsulting.assistant.models.Event;
+import com.inovconsulting.assistant.model.entity.Event;
 
 public class EventMapper {
     // Empêche l’instanciation
