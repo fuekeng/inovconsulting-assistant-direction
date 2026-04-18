@@ -61,7 +61,8 @@ Les autres variables ont des valeurs par défaut et sont optionnelles.
 ```bash
 # Cloner et entrer dans le projet
 git clone <url-du-repo>
-cd assistant-direction
+cd inovconsulting-assistant-direction
+
 
 # Charger les variables d'environnement
 export $(grep -v '^#' .env | xargs)
