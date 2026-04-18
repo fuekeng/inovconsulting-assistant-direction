@@ -94,7 +94,7 @@ docker-compose down
 ## 5. Vérification rapide
 
 ```bash
-# Santé de l'API
+# Santé de l'API en local
 curl http://localhost:8080/health
 
 # Agenda de la semaine
