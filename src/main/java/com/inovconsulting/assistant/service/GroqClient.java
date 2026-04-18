@@ -50,7 +50,7 @@ public class GroqClient {
      * @param toolSchemas définitions JSON des outils (format OpenAI function calling)
      * @return le nœud JSON "choices[0].message" brut de la réponse Groq
      */
-    public JsonNode chat(List<Map<String, String>> messages, List<ObjectNode> toolSchemas) {
+    public JsonNode chat(List<Map<String, Object>> messages, List<ObjectNode> toolSchemas) {
         try {
             // ── Construction du corps de la requête ──────────────────────
             ObjectNode body = objectMapper.createObjectNode();
@@ -71,8 +71,9 @@ public class GroqClient {
                     toolsNode.add(wrapper);
                 }
                 body.set("tools", toolsNode);
-                // "auto" : le modèle décide seul s'il doit appeler un outil
-                body.put("tool_choice", "auto");
+                // On laisse Groq gérer le tool_choice par défaut (qui est auto)
+                // Retirer l'explicite "auto" peut aider avec certains modèles Llama 3
+                // body.put("tool_choice", "auto"); // Supprimé
             }
 
             // ── En-têtes HTTP ─────────────────────────────────────────────

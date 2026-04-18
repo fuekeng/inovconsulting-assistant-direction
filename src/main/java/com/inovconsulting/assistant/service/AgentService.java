@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,17 +70,19 @@ public class AgentService {
 
         // ── 3. Reconstruction du contexte conversationnel ──────────────
         //      On insère le system prompt en tête à chaque appel (stateless LLM)
-        List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of(
-                "role",    "system",
-                CONTENT_KEY, String.format(SYSTEM_PROMPT, LocalDate.now())
-        ));
+        List<Map<String, Object>> messages = new ArrayList<>();
+        Map<String, Object> systemMsg = new HashMap<>();
+        systemMsg.put("role", "system");
+        systemMsg.put(CONTENT_KEY, String.format(SYSTEM_PROMPT, LocalDate.now()));
+        messages.add(systemMsg);
 
         /*
         On récupère tous les enciens messages avec le nouveau qui vient d'être
-        ajouté
+        ajouté. Note: conversion nécessaire car buildContextMessages retourne Map<String, String>
         */
-        messages.addAll(sessionService.buildContextMessages(sessionId));
+        for (Map<String, String> m : sessionService.buildContextMessages(sessionId)) {
+            messages.add(new HashMap<>(m));
+        }
 
         // ── 4. Premier appel LLM (avec les outils disponibles) ─────────
         JsonNode llmMessage = groqClient.chat(messages, toolRegistry.getAllSchemas());
@@ -117,18 +120,18 @@ public class AgentService {
 
             // ── 5a. Second appel LLM avec le résultat de l'outil ──────────
             // On ajoute le message assistant (avec tool_calls) et le résultat outil au contexte
-            messages.add(Map.of(
-                    "role",    "assistant",
-                    CONTENT_KEY, llmMessage.path(CONTENT_KEY).asText(""),
-                    "tool_calls", toolCalls.toString()  // transmis en raw pour compatibilité
-            ));
+            Map<String, Object> assistantMsg = new HashMap<>();
+            assistantMsg.put("role", "assistant");
+            assistantMsg.put(CONTENT_KEY, llmMessage.path(CONTENT_KEY).asText(null));
+            assistantMsg.put("tool_calls", toolCalls); // On passe l'objet JSON, pas un String !
+            messages.add(assistantMsg);
 
             // Construire le message tool_result au format OpenAI
-            messages.add(Map.of(
-                    "role",         "tool",
-                    "tool_call_id", toolCallId,
-                    CONTENT_KEY,      toolResult
-            ));
+            Map<String, Object> toolMsg = new HashMap<>();
+            toolMsg.put("role", "tool");
+            toolMsg.put("tool_call_id", toolCallId);
+            toolMsg.put(CONTENT_KEY, toolResult);
+            messages.add(toolMsg);
 
             // Appel LLM final pour formuler la réponse en langage naturel
             JsonNode finalMessage = groqClient.chat(messages, null);

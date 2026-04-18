@@ -40,6 +40,10 @@ public class ToolRegistry {
     public void init() {
         // Outils agenda
         register(getAgendaTool);
+        register(createEventTool);
+
+        // Outil synthèse — instancié manuellement pour éviter la dépendance circulaire
+        register(new SummarizeDocumentTool(groqClient, objectMapper));
 
         log.info("ToolRegistry — {} outils enregistrés : {}", tools.size(), tools.keySet());
     }
