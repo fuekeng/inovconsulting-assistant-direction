@@ -234,13 +234,3 @@ src/
 ```
 
 ---
-
-## 10. Extension — ajouter un 3ᵉ outil
-
-Pour ajouter un outil (ex : accès aux emails) :
-
-1. Créer une classe qui implémente `AgentTool`
-2. Implémenter `getName()`, `getSchema()` (schéma OpenAI), `execute(JsonNode)`
-3. L'injecter dans `ToolRegistry` et appeler `register(monNouvelOutil)` dans `init()`
-
-Le système découvre et expose automatiquement le nouvel outil au LLM.
