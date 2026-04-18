@@ -71,9 +71,7 @@ public class GroqClient {
                     toolsNode.add(wrapper);
                 }
                 body.set("tools", toolsNode);
-                // On laisse Groq gérer le tool_choice par défaut (qui est auto)
-                // Retirer l'explicite "auto" peut aider avec certains modèles Llama 3
-                // body.put("tool_choice", "auto"); // Supprimé
+                body.put("tool_choice", "auto");
             }
 
             // ── En-têtes HTTP ─────────────────────────────────────────────
