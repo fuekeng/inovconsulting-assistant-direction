@@ -1,7 +1,8 @@
 package com.inovconsulting.assistant.service;
 
 import lombok.AllArgsConstructor;
-import com.inovconsulting.assistant.dto.EventDto;
+import com.inovconsulting.assistant.model.dto.EventRequest;
+import com.inovconsulting.assistant.model.dto.EventResponse;
 import com.inovconsulting.assistant.model.entity.Event;
 import com.inovconsulting.assistant.exception.ResourceNotFoundException;
 import com.inovconsulting.assistant.mapper.EventMapper;
@@ -17,38 +18,38 @@ public class EventServiceImp implements EventService {
     private EventRepository eventRepository;
 
     @Override
-    public EventDto createEvent(EventDto eventDto) {
-        Event savedEvent = EventMapper.mapToEvent(eventDto);
+    public EventResponse createEvent(EventRequest eventRequest) {
+        Event savedEvent = EventMapper.mapToEvent(eventRequest);
         savedEvent = eventRepository.save(savedEvent);
-        return EventMapper.mapToEventDto(savedEvent);
+        return EventMapper.mapToEventResponseDto(savedEvent);
     }
 
     @Override
-    public EventDto getEventById(Long eventId) {
+    public EventResponse getEventById(Long eventId) {
         Event event = eventRepository.findById(eventId).orElseThrow(()-> new ResourceNotFoundException(EVENT_NOT_FOUND_MSG + eventId));
-        return EventMapper.mapToEventDto(event);
+        return EventMapper.mapToEventResponseDto(event);
 
     }
 
     @Override
-    public List<EventDto> getAllEvent() {
+    public List<EventResponse> getAllEvent() {
         List<Event> events = eventRepository.findAll();
-        return events.stream().map(EventMapper::mapToEventDto).toList();
+        return events.stream().map(EventMapper::mapToEventResponseDto).toList();
     }
 
     @Override
-    public EventDto updateEvent(Long eventId, EventDto eventDto) {
+    public EventResponse updateEvent(Long eventId, EventRequest eventRequest) {
         Event event = eventRepository.findById(eventId).orElseThrow(()-> new ResourceNotFoundException(EVENT_NOT_FOUND_MSG + eventId));
-        event.setTitle(eventDto.getTitle());
-        event.setDate(eventDto.getDate());
-        event.setTime(eventDto.getTime());
-        event.setParticipants(eventDto.getParticipants());
-        event.setNotes(eventDto.getNotes());
+        event.setTitle(eventRequest.getTitle());
+        event.setDate(eventRequest.getDate());
+        event.setTime(eventRequest.getTime());
+        event.setParticipants(eventRequest.getParticipants());
+        event.setNotes(eventRequest.getNotes());
 
 
         Event eventUpdated = eventRepository.save(event);
 
-        return EventMapper.mapToEventDto(eventUpdated);
+        return EventMapper.mapToEventResponseDto(eventUpdated);
     }
 
     @Override

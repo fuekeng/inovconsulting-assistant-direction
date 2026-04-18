@@ -3,7 +3,8 @@ package com.inovconsulting.assistant.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
-import com.inovconsulting.assistant.dto.EventDto;
+import com.inovconsulting.assistant.model.dto.EventResponse;
+import com.inovconsulting.assistant.model.dto.EventRequest;
 import com.inovconsulting.assistant.service.EventService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,32 +23,32 @@ public class EventController {
     @Operation(summary = "Créer un nouvel événement", description = "Build Add Event REST API")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<EventDto> createEvent(@RequestBody EventDto eventDto){
+    public ResponseEntity<EventResponse> createEvent(@RequestBody EventRequest eventRequest){
         logger.info("Starting saving event controller...");
-        EventDto savedEvent = eventService.createEvent(eventDto);
+        EventResponse savedEvent = eventService.createEvent(eventRequest);
         logger.info("Endind saving event controller...");
         return new ResponseEntity<>(savedEvent, HttpStatus.CREATED);
     }
 
     @Operation(summary = "Récupérer un événement par son ID", description = "Get event by Id")
     @GetMapping("/{id}")
-    public ResponseEntity<EventDto> getEventById(@PathVariable("id") Long eventId){
-        EventDto eventDto = eventService.getEventById(eventId);
+    public ResponseEntity<EventResponse> getEventById(@PathVariable("id") Long eventId){
+        EventResponse eventDto = eventService.getEventById(eventId);
         return ResponseEntity.ok(eventDto);
     }
 
     @Operation(summary = "Récupérer la liste de tous les événements", description = "Get a list on events")
     @GetMapping
-    public ResponseEntity<List<EventDto>> getAllEvents(){
-        List<EventDto> eventDtos = eventService.getAllEvent();
+    public ResponseEntity<List<EventResponse>> getAllEvents(){
+        List<EventResponse> eventDtos = eventService.getAllEvent();
         return ResponseEntity.ok(eventDtos);
     }
 
     @Operation(summary = "Mettre à jour un événement", description = "Update Event REST API")
     @PatchMapping("{id}")
-    public ResponseEntity<EventDto> updateEvent(@PathVariable("id") Long eventId,
-                                                @RequestBody EventDto updatedEvent) {
-        EventDto eventDto = eventService.updateEvent(eventId, updatedEvent);
+    public ResponseEntity<EventResponse> updateEvent(@PathVariable("id") Long eventId,
+                                                     @RequestBody EventRequest updatedEvent) {
+        EventResponse eventDto = eventService.updateEvent(eventId, updatedEvent);
         return ResponseEntity.ok(eventDto);
     }
 

@@ -1,17 +1,17 @@
 package com.inovconsulting.assistant.service;
 
-import com.inovconsulting.assistant.dto.EventDto;
-
+import com.inovconsulting.assistant.model.dto.EventResponse;
+import com.inovconsulting.assistant.model.dto.EventRequest;
 import java.util.List;
 
 public interface EventService {
-    EventDto createEvent(EventDto eventDto);
+    EventResponse createEvent(EventRequest eventRequest);
 
-    EventDto getEventById(Long eventId);
+    EventResponse getEventById(Long eventId);
 
-    List<EventDto> getAllEvent();
+    List<EventResponse> getAllEvent();
 
-    EventDto updateEvent(Long eventId, EventDto eventDto);
+    EventResponse updateEvent(Long eventId, EventRequest eventRequest);
 
     void deleteEvent(Long eventId);
 
