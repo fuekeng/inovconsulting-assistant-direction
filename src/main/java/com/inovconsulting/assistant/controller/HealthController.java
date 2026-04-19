@@ -1,7 +1,6 @@
 package com.inovconsulting.assistant.controller;
 
 import com.inovconsulting.assistant.repository.EventRepository;
-import com.inovconsulting.assistant.tools.ToolRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +26,10 @@ import java.util.Map;
 public class HealthController {
 
     private final EventRepository eventRepository;
-    private final ToolRegistry    toolRegistry;
 
     private static final String STATUS_KEY ="status";
 
-    @Value("${groq.model}")
+    @Value("${spring.ai.openai.chat.options.model}")
     private String groqModel;
 
     @GetMapping
@@ -55,10 +53,7 @@ public class HealthController {
         }
 
         // Configuration LLM (sans exposer la clé)
-        status.put("llm", Map.of("provider", "Groq", "model", groqModel));
-
-        // Outils enregistrés
-        status.put("tools", toolRegistry.getToolNames());
+        status.put("llm", Map.of("provider", "Groq (via Spring AI)", "model", groqModel));
 
         return ResponseEntity.ok(status);
     }

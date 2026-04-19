@@ -1,159 +1,75 @@
 package com.inovconsulting.assistant.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.inovconsulting.assistant.model.dto.ChatRequest;
 import com.inovconsulting.assistant.model.dto.ChatResponse;
-import com.inovconsulting.assistant.tools.ToolRegistry;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
+import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
 
 /**
- * Orchestrateur principal de l'agent IA.
- *
- * Flux d'un appel POST /agent/chat :
- *  1. Résoudre ou créer la session
- *  2. Persister le message utilisateur
- *  3. Reconstruire le contexte conversationnel
- *  4. Appeler le LLM avec les schémas d'outils (tool calling)
- *  5a. Si le LLM demande un outil → exécuter l'outil, renvoyer le résultat au LLM
- *  5b. Si réponse directe → utiliser le texte retourné
- *  6. Persister la réponse assistant
- *  7. Retourner le ChatResponse structuré
+ * Orchestrateur de l'agent IA utilisant Spring AI.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AgentService {
 
-    private static final String CONTENT_KEY = "content";
-    private final GroqClient     groqClient;
-    private final ToolRegistry   toolRegistry;
+    private final ChatClient chatClient;
     private final SessionService sessionService;
 
-    /** Prompt système de l'agent — définit son comportement global */
     private static final String SYSTEM_PROMPT = """
             Tu es l'assistant de direction intelligent d'Inov Consulting.
             Tu aides les directeurs et managers à gérer leur agenda et à synthétiser des documents.
             
-            Date d'aujourd'hui : %s
+            Date d'aujourd'hui : {current_date}
             
-            Règles de comportement :
-            - Réponds TOUJOURS en français, de manière professionnelle et concise.
-            - Pour toute question sur l'agenda (rendez-vous, planning, réunions), utilise OBLIGATOIREMENT l'outil get_agenda.
-            - Pour planifier ou créer un événement, utilise OBLIGATOIREMENT l'outil create_event.
-            - Pour synthétiser un document, utilise OBLIGATOIREMENT l'outil summarize_document.
-            - Ne réponds JAMAIS de mémoire sur le contenu de l'agenda — consulte toujours l'outil.
-            - Si une demande ne concerne ni l'agenda ni un document, réponds directement sans outil.
-            - Sois naturel et conversationnel dans tes formulations finales.
+            Règles :
+            - Réponds en français, de manière professionnelle et concise.
+            - Utilise les outils fournis pour l'agenda et la synthèse.
+            - Ne réponds jamais de mémoire sur l'agenda, consulte toujours l'outil.
             """;
 
-    /**
-     * Point d'entrée principal : traite un message utilisateur et retourne la réponse de l'agent.
-     */
+    public AgentService(ChatClient.Builder chatClientBuilder, SessionService sessionService) {
+        this.sessionService = sessionService;
+        this.chatClient = chatClientBuilder
+                .defaultSystem(SYSTEM_PROMPT)
+                // Activation automatique des fonctions déclarées dans le contexte Spring
+                .defaultFunctions("getAgenda", "createEvent", "summarizeDocument")
+                .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
+                .build();
+    }
+
     public ChatResponse chat(ChatRequest request) {
-
-        // ── 1. Résolution de session ──────────────────────────────────
         String sessionId = sessionService.resolveSessionId(request.getSessionId());
-        int    turn      = sessionService.getTurnCount(sessionId) + 1;
+        int turn = sessionService.getTurnCount(sessionId) + 1;
 
-        log.info("AgentService — session={}, turn={}", sessionId, turn);
+        log.info("AgentService (Spring AI) — session={}, turn={}", sessionId, turn);
 
-        // ── 2. Persistance du message utilisateur ──────────────────────
+        // Appel du LLM via ChatClient
+        String responseContent = chatClient.prompt()
+                .system(sp -> sp.param("current_date", LocalDate.now().toString()))
+                .user(request.getMessage())
+                .advisors(a -> a
+                        .param(CHAT_MEMORY_CONVERSATION_ID_KEY, sessionId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 20))
+                .call()
+                .content();
+
+        // Persistance (optionnel ici car InMemoryChatMemory gère déjà le contexte pour le LLM,
+        // mais utile pour votre historique en base de données)
         sessionService.saveUserMessage(sessionId, request.getMessage(), turn);
+        sessionService.saveAssistantMessage(sessionId, responseContent, turn);
 
-        // ── 3. Reconstruction du contexte conversationnel ──────────────
-        //      On insère le system prompt en tête à chaque appel (stateless LLM)
-        List<Map<String, Object>> messages = new ArrayList<>();
-        Map<String, Object> systemMsg = new HashMap<>();
-        systemMsg.put("role", "system");
-        systemMsg.put(CONTENT_KEY, String.format(SYSTEM_PROMPT, LocalDate.now()));
-        messages.add(systemMsg);
-
-        /*
-        On récupère tous les enciens messages avec le nouveau qui vient d'être
-        ajouté. Note: conversion nécessaire car buildContextMessages retourne Map<String, String>
-        */
-        for (Map<String, String> m : sessionService.buildContextMessages(sessionId)) {
-            messages.add(new HashMap<>(m));
-        }
-
-        // ── 4. Premier appel LLM (avec les outils disponibles) ─────────
-        JsonNode llmMessage = groqClient.chat(messages, toolRegistry.getAllSchemas());
-
-        String toolUsed      = null;
-        String finalResponse;
-
-        // ── 5. Gestion du tool calling ─────────────────────────────────
-        JsonNode toolCalls = llmMessage.path("tool_calls");
-
-        if (toolCalls.isArray() && !toolCalls.isEmpty()) {
-            // Le LLM a demandé un ou plusieurs outils
-            JsonNode firstCall  = toolCalls.get(0);
-            String   toolName   = firstCall.path("function").path("name").asText();
-            String   toolCallId = firstCall.path("id").asText();
-
-            JsonNode argsNode;
-            try {
-                // Les arguments arrivent sous forme de string JSON — on les parse
-                String argsStr = firstCall.path("function").path("arguments").asText("{}");
-                argsNode = new com.fasterxml.jackson.databind.ObjectMapper().readTree(argsStr);
-            } catch (Exception e) {
-                log.error("AgentService — impossible de parser les arguments du tool call : {}", e.getMessage());
-                argsNode = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
-            }
-
-            log.info("AgentService — tool call demandé : '{}' avec args : {}", toolName, argsNode);
-
-            // Exécution de l'outil
-            String toolResult = toolRegistry.execute(toolName, argsNode);
-            toolUsed = toolName;
-
-            // Persister la trace de l'appel outil (interne, non visible dans l'historique public)
-            sessionService.saveToolMessage(sessionId, toolName, toolResult, turn);
-
-            // ── 5a. Second appel LLM avec le résultat de l'outil ──────────
-            // On ajoute le message assistant (avec tool_calls) et le résultat outil au contexte
-            Map<String, Object> assistantMsg = new HashMap<>();
-            assistantMsg.put("role", "assistant");
-            assistantMsg.put(CONTENT_KEY, llmMessage.path(CONTENT_KEY).asText(null));
-            assistantMsg.put("tool_calls", toolCalls); // On passe l'objet JSON, pas un String !
-            messages.add(assistantMsg);
-
-            // Construire le message tool_result au format OpenAI
-            Map<String, Object> toolMsg = new HashMap<>();
-            toolMsg.put("role", "tool");
-            toolMsg.put("tool_call_id", toolCallId);
-            toolMsg.put(CONTENT_KEY, toolResult);
-            messages.add(toolMsg);
-
-            // Appel LLM final pour formuler la réponse en langage naturel
-            JsonNode finalMessage = groqClient.chat(messages, null);
-            finalResponse = finalMessage.path(CONTENT_KEY).asText(
-                    "Je n'ai pas pu formuler une réponse. Merci de réessayer.");
-
-        } else {
-            // ── 5b. Réponse directe sans outil ────────────────────────────
-            finalResponse = llmMessage.path(CONTENT_KEY).asText(
-                    "Désolé, je n'ai pas pu traiter votre demande.");
-        }
-
-        // ── 6. Persistance de la réponse assistant ─────────────────────
-        sessionService.saveAssistantMessage(sessionId, finalResponse, turn);
-
-        log.info("AgentService — réponse générée, toolUsed={}", toolUsed);
-
-        // ── 7. Construction de la réponse structurée ───────────────────
         return ChatResponse.builder()
                 .sessionId(sessionId)
-                .response(finalResponse)
-                .toolUsed(toolUsed)
+                .response(responseContent)
                 .turn(turn)
                 .build();
     }
