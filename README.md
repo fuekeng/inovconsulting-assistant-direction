@@ -10,7 +10,7 @@ des documents, le tout en langage naturel via une API REST.
 | Composant        | Choix retenu         | Justification |
 |------------------|----------------------|---------------|
 | **Backend**      | Java 17 + Spring Boot 3.3 | Robustesse entreprise, injection de dépendances mature. |
-| **IA Framework** | **Spring AI**        | Abstraction de haut niveau pour les LLM, gestion native du Tool Calling et de la mémoire. |
+| **IA Framework** | **Spring AI**        | Abstraction de haut niveau, gestion native du Tool Calling et de la mémoire. |
 | **LLM**          | Groq API (llama-3.3-70b) | Tier gratuit, compatible OpenAI, latence ultra-faible. |
 | **Base de données** | SQLite + JPA/Hibernate | Zéro infrastructure, idéal pour un test technique. |
 | **Documentation**| SpringDoc / Swagger UI | Auto-générée depuis les annotations. |
@@ -22,7 +22,7 @@ des documents, le tout en langage naturel via une API REST.
 
 - Java 17+ (`java -version`)
 - Maven 3.8+ (`mvn -version`) — ou utiliser le wrapper `./mvnw`
-- Un compte Groq gratuit → [console.groq.com](https://console.groq.com)
+- Un compte Groq gratuit → [console.groq.com](https://console.groq.com) (2 minutes)
 
 ---
 
@@ -30,8 +30,8 @@ des documents, le tout en langage naturel via une API REST.
 
 1. Rendez-vous sur **https://console.groq.com**
 2. Cliquez sur **Sign Up** et créez un compte.
-3. Menu gauche → **API Keys** → **Create API Key**.
-4. Copiez la clé générée (`gsk_...`).
+3. Dans le menu gauche → **API Keys** → **Create API Key**
+4. Copiez la clé générée (elle commence par `gsk_...`)
 
 ---
 
@@ -42,79 +42,146 @@ des documents, le tout en langage naturel via une API REST.
 cp .env.example .env
 
 # Éditer .env et renseigner votre clé Groq
-nano .env
+nano .env   # ou code .env
 ```
 
-Variable obligatoire dans `.env` :
+Variables obligatoires dans `.env` :
+
 ```
 GROQ_API_KEY=gsk_VOTRE_CLE_ICI
 ```
 
 ---
 
-## 3. Lancement
-
-L'application utilise `dotenv-java` pour charger automatiquement le fichier `.env` au démarrage.
+## 3. Lancement (sans Docker)
 
 ```bash
-# Lancer l'application
+# Cloner et entrer dans le projet
+git clone <url-du-repo>
+cd inovconsulting-assistant-direction
+
+# Lancer l'application (le seed s'exécute automatiquement)
 ./mvnw spring-boot:run
 ```
 
-- **Swagger UI** : [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **Santé de l'API** : [http://localhost:8080/health](http://localhost:8080/health)
+L'application démarre sur **http://localhost:8080**.
+Swagger UI disponible sur : **http://localhost:8080/swagger-ui.html**
 
 ---
 
-## 4. Architecture du projet (Refactorisée Spring AI)
+## 4. Lancement avec Docker (bonus)
 
-Le projet utilise le concept de **Function Calling** de Spring AI. Les outils sont déclarés comme des `@Bean Function` Java simples.
-
-```
-src/main/java/com/inovconsulting/assistant/
-├── AssistantDirection.java → Point d'entrée & chargement .env
-├── controller/        → Endpoints HTTP
-│   ├── AgentController.java      (POST /agent/chat)
-│   ├── AgendaController.java     (CRUD Agenda)
-│   ├── SessionController.java    (Historique session)
-│   └── HealthController.java     (Santé & Config)
-├── service/           → Logique métier
-│   ├── AgentService.java         (Orchestration via ChatClient Spring AI)
-│   ├── AgendaService.java        (Gestion de l'agenda SQLite)
-│   └── SessionService.java       (Persistance de l'historique en base)
-├── tools/             → Fonctions appelées par l'IA (Spring AI Functions)
-│   ├── GetAgendaTool.java        (Consultation agenda)
-│   ├── CreateEventTool.java      (Création d'événement)
-│   └── SummarizeDocumentTool.java (Synthèse via appel LLM secondaire)
-├── model/             → Entités JPA et DTOs
-├── repository/        → Accès aux données (Spring Data JPA)
-├── mapper/            → Conversion Entity <-> DTO
-├── exception/         → Gestion des erreurs personnalisées
-└── db/                → DataSeeder (données de test automatiques)
-```
-
----
-
-## 5. Exemples d'utilisation
-
-### Consulter l'agenda (via Agent)
 ```bash
-curl -X POST http://localhost:8080/agent/chat \
+# Copier et configurer .env (voir étape 2)
+cp .env.example .env && nano .env
+
+# Lancer
+docker-compose up --build
+
+# Arrêter
+docker-compose down
+```
+
+---
+
+## 5. Vérification rapide
+
+```bash
+# Santé de l'API en local (Vérifie la config Spring AI)
+curl http://localhost:8080/health
+
+# Agenda de la semaine (Accès direct REST)
+curl "http://localhost:8080/agenda?range=week"
+```
+
+---
+
+## 6. Exemples de requêtes curl
+
+### Consulter l'agenda via l'Agent IA
+
+```bash
+curl -s -X POST http://localhost:8080/agent/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Quels sont mes rendez-vous de demain ?"}'
+  -d '{"session_id": null, "message": "Quels sont mes rendez-vous de demain ?"}' \
+  | jq .
+```
+
+### Planifier un événement (Tool Calling automatique)
+
+```bash
+curl -s -X POST http://localhost:8080/agent/chat \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": null, "message": "Planifie une réunion vendredi à 10h avec l'équipe tech"}' \
+  | jq .
+```
+
+### Conversation multi-tours (Mémoire Spring AI)
+
+```bash
+# Tour 1 — démarrer une session
+SESSION=$(curl -s -X POST http://localhost:8080/agent/chat \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": null, "message": "Résume ma semaine à venir"}' \
+  | jq -r '.session_id')
+
+# Tour 2 — continuer la même session (contexte conservé par l'advisor)
+curl -s -X POST http://localhost:8080/agent/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"session_id\": \"$SESSION\", \"message\": \"Quel est le premier rendez-vous ?\"}" \
+  | jq .
 ```
 
 ### Synthèse de document
+
 ```bash
-curl -X POST http://localhost:8080/agent/chat \
+curl -s -X POST http://localhost:8080/agent/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Synthétise ce texte : [votre texte long ici...]"}'
+  -d '{
+    "message": "Synthétise ce document : [Texte du compte-rendu...]"
+  }' \
+  | jq .
 ```
 
 ---
 
-## 6. Tests
+## 7. Endpoints disponibles
+
+| Méthode | Route                   | Description                          |
+|---------|-------------------------|--------------------------------------|
+| POST    | `/agent/chat`           | Point d'entrée de l'agent (Spring AI)|
+| GET     | `/agenda`               | Lister les événements                |
+| POST    | `/agenda`               | Créer un événement (REST direct)     |
+| GET     | `/session/{id}/history` | Historique persistant                |
+| GET     | `/health`               | Statut (DB + Config LLM)             |
+
+---
+
+## 8. Lancer les tests
 
 ```bash
 ./mvnw test
+```
+
+---
+
+## 9. Architecture du projet
+
+```
+src/main/java/com/inovconsulting/assistant/
+├── controller/        → Endpoints HTTP
+│   ├── AgentController.java      (Chat via Spring AI)
+│   ├── AgendaController.java     (CRUD Agenda)
+│   └── HealthController.java     (Santé & Config LLM)
+├── service/           → Logique métier
+│   ├── AgentService.java         (Orchestration ChatClient + Advisors)
+│   ├── AgendaService.java        (Gestion Agenda SQLite)
+│   └── SessionService.java       (Gestion des sessions et historique)
+├── tools/             → Fonctions Spring AI (Tool Calling)
+│   ├── GetAgendaTool.java        (@Bean Function - Consultation)
+│   ├── CreateEventTool.java      (@Bean Function - Création)
+│   └── SummarizeDocumentTool.java (@Bean Function - Synthèse)
+├── model/             → Entités JPA et DTOs
+├── repository/        → Interfaces JpaRepository
+└── db/                → DataSeeder (Données de test)
 ```
