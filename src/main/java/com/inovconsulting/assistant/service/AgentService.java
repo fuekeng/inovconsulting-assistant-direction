@@ -1,11 +1,11 @@
 package com.inovconsulting.assistant.service;
 
+import com.inovconsulting.assistant.config.ToolContext;
 import com.inovconsulting.assistant.model.dto.ChatRequest;
 import com.inovconsulting.assistant.model.dto.ChatResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +32,7 @@ public class AgentService {
             
             Règles :
             - Réponds en français, de manière professionnelle et concise.
-            - Utilise les outils fournis pour l'agenda et la synthèse.
+            - Utilise les outils fournis pour l'agenda (get_agenda, create_event) et la synthèse (summarize_document).
             - Ne réponds jamais de mémoire sur l'agenda, consulte toujours l'outil.
             """;
 
@@ -40,8 +40,7 @@ public class AgentService {
         this.sessionService = sessionService;
         this.chatClient = chatClientBuilder
                 .defaultSystem(SYSTEM_PROMPT)
-                // Activation automatique des fonctions déclarées dans le contexte Spring
-                .defaultFunctions("getAgenda", "createEvent", "summarizeDocument")
+                .defaultFunctions("get_agenda", "create_event", "summarize_document")
                 .defaultAdvisors(new MessageChatMemoryAdvisor(new InMemoryChatMemory()))
                 .build();
     }
@@ -52,25 +51,36 @@ public class AgentService {
 
         log.info("AgentService (Spring AI) — session={}, turn={}", sessionId, turn);
 
-        // Appel du LLM via ChatClient
-        String responseContent = chatClient.prompt()
-                .system(sp -> sp.param("current_date", LocalDate.now().toString()))
-                .user(request.getMessage())
-                .advisors(a -> a
-                        .param(CHAT_MEMORY_CONVERSATION_ID_KEY, sessionId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 20))
-                .call()
-                .content();
+        // Nettoyage du contexte de l'outil avant l'appel
+        ToolContext.clear();
 
-        // Persistance (optionnel ici car InMemoryChatMemory gère déjà le contexte pour le LLM,
-        // mais utile pour votre historique en base de données)
-        sessionService.saveUserMessage(sessionId, request.getMessage(), turn);
-        sessionService.saveAssistantMessage(sessionId, responseContent, turn);
+        try {
+            // Appel du LLM (Spring AI gère les appels d'outils de manière synchrone ici)
+            String responseContent = chatClient.prompt()
+                    .system(sp -> sp.param("current_date", LocalDate.now().toString()))
+                    .user(request.getMessage())
+                    .advisors(a -> a
+                            .param(CHAT_MEMORY_CONVERSATION_ID_KEY, sessionId)
+                            .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 20))
+                    .call()
+                    .content();
 
-        return ChatResponse.builder()
-                .sessionId(sessionId)
-                .response(responseContent)
-                .turn(turn)
-                .build();
+            // Récupération du nom de l'outil capturé pendant l'exécution des fonctions
+            String toolUsed = ToolContext.getToolName();
+
+            // Persistance base de données
+            sessionService.saveUserMessage(sessionId, request.getMessage(), turn);
+            sessionService.saveAssistantMessage(sessionId, responseContent, turn);
+
+            return ChatResponse.builder()
+                    .sessionId(sessionId)
+                    .response(responseContent)
+                    .toolUsed(toolUsed)
+                    .turn(turn)
+                    .build();
+        } finally {
+            // Nettoyage final pour éviter les fuites de mémoire ThreadLocal
+            ToolContext.clear();
+        }
     }
 }
