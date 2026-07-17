@@ -32,4 +32,5 @@ build/
 ### VS Code ###
 .vscode/
 .env
-./assistant.db
+### Sqlite ###
+assistant.db
