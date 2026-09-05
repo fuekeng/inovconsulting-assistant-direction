@@ -25,9 +25,9 @@ public class CreateEventTool {
             @Description("Notes") String notes
     ) {}
 
-    @Bean
+    @Bean("create_event")
     @Description("Crée un nouvel événement dans l'agenda du directeur.")
-    public Function<Request, EventResponse> create_event(AgendaService agendaService) {
+    public Function<Request, EventResponse> createEvent(AgendaService agendaService) {
         return request -> {
             ToolContext.setToolName("create_event"); // Signalement de l'outil
             log.info("CreateEventTool — création : {}", request.title());

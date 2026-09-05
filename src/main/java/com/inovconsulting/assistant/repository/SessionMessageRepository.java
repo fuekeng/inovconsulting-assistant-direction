@@ -15,9 +15,6 @@ public interface SessionMessageRepository extends JpaRepository<SessionMessage, 
     /** Récupère tous les messages d'une session, dans l'ordre chronologique. */
     List<SessionMessage> findBySessionIdOrderByIdAsc(String sessionId);
 
-    /** Vérifie l'existence d'une session. */
-    boolean existsBySessionId(String sessionId);
-
     /** Compte le nombre de tours (messages user uniquement) dans une session. */
     long countBySessionIdAndRole(String sessionId, String role);
 }

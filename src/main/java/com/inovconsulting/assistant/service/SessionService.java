@@ -5,11 +5,9 @@ import com.inovconsulting.assistant.model.entity.SessionMessage;
 import com.inovconsulting.assistant.repository.SessionMessageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -30,10 +28,6 @@ import java.util.UUID;
 public class SessionService {
     private static final String ASSISTANT_KEY = "assistant";
     private final SessionMessageRepository sessionMessageRepository;
-
-    /** Nombre maximum de tours conservés dans la fenêtre de contexte LLM */
-    @Value("${session.max.turns:20}")
-    private int maxTurns;
 
     // ─────────────────────────────────────────────────────────
     // Gestion des sessions
@@ -67,52 +61,14 @@ public class SessionService {
      * Persiste un message utilisateur dans la session.
      */
     public void saveUserMessage(String sessionId, String content, int turn) {
-        saveMessage(sessionId, "user", content, null, turn);
+        saveMessage(sessionId, "user", content, turn);
     }
 
     /**
      * Persiste un message assistant dans la session.
      */
     public void saveAssistantMessage(String sessionId, String content, int turn) {
-        saveMessage(sessionId, ASSISTANT_KEY, content, null, turn);
-    }
-
-    /**
-     * Persiste le résultat d'un appel d'outil (pour la trace interne).
-     */
-    public void saveToolMessage(String sessionId, String toolName, String content, int turn) {
-        saveMessage(sessionId, "tool", content, toolName, turn);
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // Reconstruction du contexte LLM
-    // ─────────────────────────────────────────────────────────
-
-    /**
-     * Retourne les messages de la session sous forme de Map { role, content }
-     * utilisables directement dans la requête Groq.
-     * Seuls les messages user et assistant sont inclus (pas les messages tool internes).
-     * La fenêtre est limitée à maxTurns * 2 messages (user + assistant par tour).
-     */
-    public List<Map<String, String>> buildContextMessages(String sessionId) {
-        List<SessionMessage> all = sessionMessageRepository
-                .findBySessionIdOrderByIdAsc(sessionId);
-
-        // Filtrer uniquement user/assistant, exclure les traces tool internes
-        List<SessionMessage> conversational = all.stream()
-                .filter(m -> "user".equals(m.getRole()) || ASSISTANT_KEY.equals(m.getRole()))
-                .toList();
-
-        // Appliquer la fenêtre glissante
-        int maxMessages = maxTurns * 2;
-        if (conversational.size() > maxMessages) {
-            conversational = conversational.subList(
-                    conversational.size() - maxMessages, conversational.size());
-        }
-
-        return conversational.stream()
-                .map(m -> Map.of("role", m.getRole(), "content", m.getContent()))
-                .toList();
+        saveMessage(sessionId, ASSISTANT_KEY, content, turn);
     }
 
     // ─────────────────────────────────────────────────────────
@@ -141,12 +97,11 @@ public class SessionService {
     // Helper privé
     // ─────────────────────────────────────────────────────────
 
-    private void saveMessage(String sessionId, String role, String content, String toolName, int turn) {
+    private void saveMessage(String sessionId, String role, String content, int turn) {
         SessionMessage msg = SessionMessage.builder()
                 .sessionId(sessionId)
                 .role(role)
                 .content(content)
-                .toolName(toolName)
                 .turn(turn)
                 .build();
         sessionMessageRepository.save(msg);

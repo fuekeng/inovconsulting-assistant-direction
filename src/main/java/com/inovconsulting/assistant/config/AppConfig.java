@@ -8,6 +8,9 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -38,6 +41,18 @@ public class AppConfig {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    /**
+     * Mémoire conversationnelle utilisée par l'agent IA (fenêtre glissante de messages),
+     * bornée par le même paramètre que la fenêtre de contexte persistée en base
+     * ({@code session.max.turns}, un tour = un message utilisateur + un message assistant).
+     */
+    @Bean
+    public ChatMemory chatMemory(@Value("${session.max.turns:20}") int maxTurns) {
+        return MessageWindowChatMemory.builder()
+                .maxMessages(maxTurns * 2)
+                .build();
     }
 
     /**

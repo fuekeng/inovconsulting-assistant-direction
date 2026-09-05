@@ -145,7 +145,7 @@ public class AgendaServiceImp implements  AgendaService{
     }
 
     /** Mappe une entité Event vers son DTO de réponse. */
-    public EventResponse toResponse(Event event) {
+    private EventResponse toResponse(Event event) {
         return EventResponse.builder()
                 .id(event.getId())
                 .title(event.getTitle())

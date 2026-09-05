@@ -2,7 +2,7 @@ package com.inovconsulting.assistant.controller;
 
 import com.inovconsulting.assistant.model.dto.EventRequest;
 import com.inovconsulting.assistant.model.dto.EventResponse;
-import com.inovconsulting.assistant.service.AgendaServiceImp;
+import com.inovconsulting.assistant.service.AgendaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,7 +28,7 @@ import java.util.List;
 @Tag(name = "Agenda", description = "Gestion directe des événements calendrier")
 public class AgendaController {
 
-    private final AgendaServiceImp agendaService;
+    private final AgendaService agendaService;
 
     // ─────────────────────────────────────────────────────────────────────────
     // GET /agenda

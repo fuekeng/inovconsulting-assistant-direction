@@ -18,9 +18,9 @@ public class SummarizeDocumentTool {
             String text
     ) {}
 
-    @Bean
+    @Bean("summarize_document")
     @Description("Produit une synthèse structurée (points clés, décisions, actions) d'un document texte.")
-    public Function<Request, String> summarize_document(ChatClient.Builder chatClientBuilder) {
+    public Function<Request, String> summarizeDocument(ChatClient.Builder chatClientBuilder) {
         return request -> {
             ToolContext.setToolName("summarize_document");
             log.info("SummarizeDocumentTool — synthèse d'un document ({} caractères)", request.text().length());

@@ -1,0 +1,26 @@
+# Build artifacts (reconstruits dans l'image)
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+# VCS / IDE
+.git/
+.gitignore
+.gitattributes
+.idea/
+*.iml
+.vscode/
+
+# Secrets et données locales — ne doivent jamais entrer dans le contexte de build
+.env
+*.db
+
+# Documentation / config projet non nécessaires à l'image
+README.md
+HELP.md
+CLAUDE.md
+.mcp.json
+docker-compose.yml
+Dockerfile
+.dockerignore

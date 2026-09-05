@@ -23,9 +23,9 @@ public class GetAgendaTool {
 
     public record Response(String today, List<EventResponse> events) {}
 
-    @Bean
+    @Bean("get_agenda")
     @Description("Interroge l'agenda du directeur pour consulter ses rendez-vous.")
-    public Function<Request, Response> get_agenda(AgendaService agendaService) {
+    public Function<Request, Response> getAgenda(AgendaService agendaService) {
         return request -> {
             ToolContext.setToolName("get_agenda"); // Signalement de l'outil
             log.info("GetAgendaTool — appel avec date={} et range={}", request.date(), request.range());
