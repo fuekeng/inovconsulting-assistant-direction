@@ -1,6 +1,23 @@
 version: "3.9"
 
 services:
+  mysql:
+    image: mysql:8.4
+    container_name: assistant-mysql
+    environment:
+      - MYSQL_DATABASE=${DB_NAME:-assistant}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-ffffffff}
+    volumes:
+      # Persiste la base MySQL entre les redémarrages
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-ffffffff}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   assistant:
     build: .
     container_name: assistant-direction
@@ -9,10 +26,11 @@ services:
     env_file:
       - .env
     environment:
-      - DB_PATH=/app/data/assistant.db
-    volumes:
-      # Persiste la base SQLite entre les redémarrages
-      - sqlite_data:/app/data
+      - DB_HOST=mysql
+      - DB_PORT=3306
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
@@ -22,4 +40,4 @@ services:
       start_period: 20s
 
 volumes:
-  sqlite_data:
+  mysql_data:

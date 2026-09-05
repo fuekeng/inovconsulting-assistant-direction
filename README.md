@@ -12,7 +12,7 @@ des documents, le tout en langage naturel via une API REST.
 | **Backend**      | Java 17 + Spring Boot 3.3 | Robustesse entreprise, injection de dépendances mature. |
 | **IA Framework** | **Spring AI**        | Abstraction de haut niveau, gestion native du Tool Calling et de la mémoire. |
 | **LLM**          | Groq API (llama-3.3-70b) | Tier gratuit, compatible OpenAI, latence ultra-faible. |
-| **Base de données** | SQLite + JPA/Hibernate | Zéro infrastructure, idéal pour un test technique. |
+| **Base de données** | MySQL + JPA/Hibernate | Robuste et adapté à un usage multi-connexions. |
 | **Documentation**| SpringDoc / Swagger UI | Auto-générée depuis les annotations. |
 | **Tests**        | JUnit 5 + Mockito    | Standard Java, intégré Spring Boot Test. |
 
@@ -49,7 +49,16 @@ Variables obligatoires dans `.env` :
 
 ```
 GROQ_API_KEY=gsk_VOTRE_CLE_ICI
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=assistant
+DB_USERNAME=root
+DB_PASSWORD=votre_mot_de_passe
 ```
+
+> Nécessite une instance MySQL locale avec une base `assistant` déjà créée
+> (`CREATE DATABASE assistant;`) — les tables sont ensuite créées/mises à jour
+> automatiquement par Hibernate (`ddl-auto=update`).
 
 ---
 
@@ -175,7 +184,7 @@ src/main/java/com/inovconsulting/assistant/
 │   └── HealthController.java     (Santé & Config LLM)
 ├── service/           → Logique métier
 │   ├── AgentService.java         (Orchestration ChatClient + Advisors)
-│   ├── AgendaService.java        (Gestion Agenda SQLite)
+│   ├── AgendaService.java        (Gestion Agenda MySQL)
 │   └── SessionService.java       (Gestion des sessions et historique)
 ├── tools/             → Fonctions Spring AI (Tool Calling)
 │   ├── GetAgendaTool.java        (@Bean Function - Consultation)

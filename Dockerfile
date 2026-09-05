@@ -22,17 +22,17 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-# Utilisateur non-root dédié à l'exécution du conteneur, propriétaire du
-# répertoire de données SQLite (monté en volume)
-RUN addgroup -S spring && adduser -S spring -G spring \
-    && mkdir -p /app/data && chown -R spring:spring /app/data
+# Utilisateur non-root dédié à l'exécution du conteneur
+RUN addgroup -S spring && adduser -S spring -G spring
 
 # Copier le jar depuis le stage builder
 COPY --from=builder /app/target/*.jar app.jar
 
 # Variables d'environnement par défaut (surchargées par docker-compose ou .env)
 ENV SERVER_PORT=8080
-ENV DB_PATH=/app/data/assistant.db
+ENV DB_HOST=localhost
+ENV DB_PORT=3306
+ENV DB_NAME=assistant
 
 USER spring
 
