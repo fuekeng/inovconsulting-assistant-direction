@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
@@ -126,6 +125,16 @@ class AgendaServiceTest {
     }
 
     @Test
+    @DisplayName("createEvent — lève 400 si titre vide")
+    void createEvent_throwsBadRequestWhenTitleBlank() {
+        EventRequest blankTitle = new EventRequest("   ", tomorrow, LocalTime.of(10, 0), null, null);
+
+        assertThatThrownBy(() -> agendaService.createEvent(blankTitle))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("titre");
+    }
+
+    @Test
     @DisplayName("createEvent — lève 400 si date absente")
     void createEvent_throwsBadRequestWhenDateMissing() {
         EventRequest noDate = new EventRequest("Test", null, LocalTime.of(10, 0), null, null);
@@ -187,11 +196,39 @@ class AgendaServiceTest {
         // Les autres champs ne doivent pas avoir changé
         assertThat(result.getDate()).isEqualTo(tomorrow);
         assertThat(result.getTime()).isEqualTo(LocalTime.of(9, 0));
+        verify(eventRepository, times(1)).save(sampleEvent);
+    }
+
+    @Test
+    @DisplayName("updateEvent — lève 404 si événement inexistant")
+    void updateEvent_throws404WhenNotFound() {
+        when(eventRepository.findById(999L)).thenReturn(Optional.empty());
+
+        EventRequest patch = new EventRequest();
+        patch.setTitle("Nouveau titre");
+
+        assertThatThrownBy(() -> agendaService.updateEvent(999L, patch))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("introuvable");
+        verify(eventRepository, never()).save(any());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // getEvents (avec range=week)
+    // getEvents (filtre date / range=week / tous)
     // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getEvents avec une date — interroge par date exacte")
+    void getEvents_withDate_callsFindByDate() {
+        when(eventRepository.findByDateOrderByTimeAsc(tomorrow))
+                .thenReturn(List.of(sampleEvent));
+
+        List<EventResponse> result = agendaService.getEvents(tomorrow, null);
+
+        assertThat(result).hasSize(1);
+        verify(eventRepository, times(1)).findByDateOrderByTimeAsc(tomorrow);
+        verify(eventRepository, never()).findAll();
+    }
 
     @Test
     @DisplayName("getEvents avec range=week — interroge la plage de 7 jours")
@@ -204,5 +241,34 @@ class AgendaServiceTest {
         assertThat(result).hasSize(1);
         verify(eventRepository, times(1))
                 .findByDateBetweenOrderByDateAscTimeAsc(today, today.plusDays(6));
+    }
+
+    @Test
+    @DisplayName("getEvents sans date ni range — retourne tous les événements")
+    void getEvents_noFilter_returnsAllEvents() {
+        when(eventRepository.findAll()).thenReturn(List.of(sampleEvent));
+
+        List<EventResponse> result = agendaService.getEvents(null, null);
+
+        assertThat(result).hasSize(1);
+        verify(eventRepository, times(1)).findAll();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // getEventsByRange
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getEventsByRange — retourne les événements de la plage donnée")
+    void getEventsByRange_returnsEventsInRange() {
+        LocalDate end = tomorrow.plusDays(3);
+        when(eventRepository.findByDateBetweenOrderByDateAscTimeAsc(tomorrow, end))
+                .thenReturn(List.of(sampleEvent));
+
+        List<EventResponse> result = agendaService.getEventsByRange(tomorrow, end);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTitle()).isEqualTo("Comité de direction");
+        verify(eventRepository, times(1)).findByDateBetweenOrderByDateAscTimeAsc(tomorrow, end);
     }
 }

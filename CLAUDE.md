@@ -66,13 +66,14 @@ memory (`MessageChatMemoryAdvisor` + `InMemoryChatMemory`, keyed by `session_id`
 Spring AI invokes tool functions synchronously when the LLM requests them. After the call, the user/assistant
 messages are persisted via `SessionService`, and the response includes which tool (if any) was used.
 
-**Persistence:** MySQL via JPA/Hibernate (`mysql-connector-j` driver, dialect auto-detected by Hibernate), `ddl-auto=update`. Connection
-is configured via `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD` env vars (defaults: `localhost`/`3306`/
-`assistant`/`root`); the target database (e.g. `assistant`) must already exist locally — Hibernate only manages
-tables, not the schema/database itself.
+**Persistence:** MySQL via JPA/Hibernate (`mysql-connector-j` driver, `hibernate.dialect` set explicitly via
+`DB_DIALECT` — Hibernate can't auto-detect the dialect from a JDBC URL alone), `ddl-auto=update`. Connection
+is configured via `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USERNAME`/`DB_PASSWORD`/`DB_DIALECT` env vars (defaults:
+`localhost`/`3306`/`assistant`/`root`/`org.hibernate.dialect.MySQLDialect`); the target database (e.g. `assistant`)
+must already exist locally — Hibernate only manages tables, not the schema/database itself.
 
 **Config:** environment variables are defined in `.env` (gitignored, loaded manually in `main()` via
 `dotenv-java` into system properties before `SpringApplication.run`) and consumed in
 `src/main/resources/application.properties`. See `.env.example` for the full list (`SERVER_PORT`, `DB_HOST`,
-`DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `GROQ_API_KEY`, `GROQ_API_URL`, `GROQ_MODEL`, `GROQ_MAX_TOKENS`,
-`SESSION_MAX_TURNS`, `LOG_LEVEL`).
+`DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DIALECT`, `GROQ_API_KEY`, `GROQ_API_URL`, `GROQ_MODEL`,
+`GROQ_MAX_TOKENS`, `SESSION_MAX_TURNS`, `LOG_LEVEL`).
